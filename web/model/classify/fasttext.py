@@ -1,7 +1,8 @@
 """
 使用fasttext做文本分类
 """
-from config.model_config import FastTextConfig, STOP_WORDS_PATH
+from data.models import ClassifyData
+from model.config.model_config import FastTextConfig, STOP_WORDS_PATH
 from model.common.Model import Model
 # noinspection PyUnresolvedReferences
 import tensorflow.compat.v1 as tf
@@ -12,9 +13,11 @@ import numpy as np
 import logging
 from tqdm import tqdm
 import sklearn.metrics as metrics
-
+from django.db import models
 from model.preprocess.process_data import pre_process, load_dataset, build_vocab, read_vocab, build_label, read_label, \
-    data_transform, creat_batch_data, text_processing
+    data_transform, creat_batch_data, text_processing, read_label_db
+
+from django.db.models import F
 
 # GPU配置信息
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"                  # 按照PCI_BUS_ID顺序从0开始排列GPU设备
@@ -24,10 +27,12 @@ gpuConfig.allow_soft_placement = True                           #设置为True�
 gpuConfig.gpu_options.allow_growth = True                       #设置为True，程序运行时，会根据程序所需GPU显存情况，分配最小的资源
 gpuConfig.gpu_options.per_process_gpu_memory_fraction = 0.8     #程序运行的时，所需的GPU显存资源最大不允许超过rate的设定值
 
+
 class FastText(Model):
-    def __init__(self):
+    def __init__(self, realtime_train=False):
         super().__init__()
         # 配置参数
+        self.realtime_train = realtime_train
         self.input_x = tf.placeholder(shape=[None, FastTextConfig.SEQ_LENGTH],
                                                 dtype=tf.int32, name='input-x')      # 输入文本
         self.input_y = tf.placeholder(shape=[None, FastTextConfig.NUM_CLASSES],
@@ -40,7 +45,6 @@ class FastText(Model):
         self.output = None
         self.loss = None
         self.accuracy = None
-
 
     def build(self):
         """
@@ -76,20 +80,27 @@ class FastText(Model):
 
     def train(self):
         # 数据集预处理
-        if not os.path.exists(FastTextConfig.PREPROCESS_PATH):
-            pre_process(FastTextConfig.ORIGINAL_DATA_PATH, FastTextConfig.PREPROCESS_PATH)
-        sentences, labels = load_dataset(FastTextConfig.PREPROCESS_PATH)      # 加载数据集
+        # if not os.path.exists(FastTextConfig.PREPROCESS_PATH):
+        #     pre_process(FastTextConfig.ORIGINAL_DATA_PATH, FastTextConfig.PREPROCESS_PATH)
+
+        # sentences, labels = load_dataset(FastTextConfig.PREPROCESS_PATH)      # 加载数据集
+        if self.realtime_train:
+            data = ClassifyData.objects.values("pre_text", "human_tag").filter(predict_tag__ne=F('human_tag'))
+        else:
+            data = ClassifyData.objects.values("pre_text", "human_tag").exclude(human_tag=None)
+        sentences, labels = [d["pre_text"] for d in data], [d["human_tag"] for d in data]
         # 构建词汇映射表
         if not os.path.exists(FastTextConfig.VOCAB_PATH):
             build_vocab(sentences, FastTextConfig.VOCAB_PATH)
         word_to_id = read_vocab(FastTextConfig.VOCAB_PATH)      # 读取词汇表及其映射关系
         # 构建类别映射表
-        if not os.path.exists(FastTextConfig.LABEL_PATH):
-            build_label(labels, FastTextConfig.LABEL_PATH)
-        label_to_id = read_label(FastTextConfig.LABEL_PATH)     # 读取类别表及其映射关系
+        # if not os.path.exists(FastTextConfig.LABEL_PATH):
+        #     build_label(labels, FastTextConfig.LABEL_PATH)
+        label_to_id = read_label_db()     # 读取类别表及其映射关系
 
         # 构建训练数据集
         data_sentences, data_labels = data_transform(sentences, labels, word_to_id, label_to_id)
+
         # 训练集、测试集划分
         split_index = int(len(data_sentences) * FastTextConfig.TRAIN_TEST_SPLIT_VALUE)
         train_data, test_data = data_sentences[: split_index], data_sentences[split_index: ]
@@ -105,7 +116,9 @@ class FastText(Model):
         saver = tf.train.Saver()
         if not os.path.exists(FastTextConfig.MODEL_SAVE_PATH):      # 如不存在相应文件夹，则创建
             os.mkdir(FastTextConfig.MODEL_SAVE_PATH)
-
+        # 是否实时训练
+        if self.realtime_train:
+            saver.restore(sess=self.sess, save_path=FastTextConfig.MODEL_SAVE_PATH)
         # 模型训练
         best_f1_score = 0  # 初始best模型的F1值
         for epoch in range(1, FastTextConfig.EPOCHS + 1):
@@ -157,6 +170,24 @@ class FastText(Model):
                 best_f1_score = f1_score
                 saver.save(sess=self.sess, save_path=FastTextConfig.MODEL_SAVE_PATH)
                 logging.info('Save Model Success ...')
+                
+    def predict_all(self):
+        # 实例化并加载模型
+        saver = tf.train.Saver()
+        saver.restore(sess=self.sess, save_path=FastTextConfig.MODEL_SAVE_PATH)
+        # 加载词汇->ID映射表
+        self.word_to_id = read_vocab(FastTextConfig.VOCAB_PATH)
+        _, id_to_label = read_label_db()
+        # 从数据库获取所有数据并预测
+        data = ClassifyData.objects.all()
+        for d in data:
+            sentence = d['pre_text']
+            # 对句子预处理并进行ID表示
+            sentence_id = self.pre_process(sentence)
+            feed_dict = {self.input_x: [sentence_id], self.input_keep_prob: 1.0}
+            predict = self.sess.run(self.output, feed_dict=feed_dict)[0]
+            label = id_to_label.get(predict)
+            data.update(predict_tag=label)
 
     def predict(self, sentence):
         # 实例化并加载模型

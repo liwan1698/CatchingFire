@@ -5,8 +5,8 @@ import jieba
 from collections import Counter
 import numpy as np
 
-from common.util import read_yaml
-from config.model_config import STOP_WORDS_PATH, FastTextConfig
+from data.models import ClassifyTag
+from model.config.model_config import STOP_WORDS_PATH, FastTextConfig
 
 
 def pre_process(data_path, preprocess_path):
@@ -127,6 +127,18 @@ def read_label(label_path):
     label_to_id = dict(zip(labels, range(len(labels))))
 
     return label_to_id
+
+
+def read_label_db():
+    '''
+    读取类别表，构建 类别-->ID 映射字典
+    :return: 类别表，label_to_id
+    '''
+    tags = ClassifyTag.objects.values("tag")
+    labels = [t["tag"] for t in tags]
+    label_to_id = dict(zip(labels, range(len(labels))))
+    id_to_label = dict(zip(range(len(labels)), labels))
+    return label_to_id, id_to_label
 
 
 def data_transform(input_data, input_label, word_to_id, label_to_id):

@@ -7,8 +7,15 @@ from data.models import ClassifyData, ClassifyTag
 import logging
 import json
 
+from model.classify.fasttext import FastText
+
 
 class Classify(View):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.human_tag_num = 0   # 记录人工修改数
+        self.real_time_train_num = 100   # 当HUMAN_TAG_NUM达到100，则触发实时训练
+
     def get(self, request):
         """
         获得标注数据
@@ -38,10 +45,17 @@ class Classify(View):
         logging.debug('dataset is %s, id is %s, tag is %s, status is %s' % (dataset, position, tag, status))
 
         data = ClassifyData.objects.filter(id=position)
-        if tag is not None:
-            data.update(human_tag=tag)
-        if status is not None:
-            data.update(status=bool(status))
+        if tag != data["predict_tag"]:
+            self.human_tag_num += 1
+            # 触发实时训练
+            if self.human_tag_num == self.real_time_train_num:
+                fasttext = FastText(realtime_train=True)
+                fasttext.build()
+                fasttext.train()
+                fasttext.predict_all()
+                self.human_tag_num = 0
+        data.update(human_tag=tag)
+        data.update(status=bool(status))
         return JsonResponse({"code": 200}, json_dumps_params={'ensure_ascii': False})
 
 
