@@ -3,11 +3,11 @@
 """
 from algo.models import ClassifyData
 from .model_config import FastTextConfig, MODEL_SAVE_PATH
-from .model import Model
+from .model import CustomModel
 # noinspection PyUnresolvedReferences
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
-tf.global_variables_initializer()
+import tensorflow as tf
+# tf.disable_v2_behavior()
+# tf.global_variables_initializer()
 import os
 import numpy as np
 import logging
@@ -29,7 +29,7 @@ gpuConfig.gpu_options.allow_growth = True                       #设置为True�
 gpuConfig.gpu_options.per_process_gpu_memory_fraction = 0.8     #程序运行的时，所需的GPU显存资源最大不允许超过rate的设定值
 
 
-class FastText(Model):
+class FastText(CustomModel):
     def __init__(self, data_index=None, realtime_train=False):
         super().__init__()
         # 配置参数
@@ -39,7 +39,8 @@ class FastText(Model):
                                                 dtype=tf.int32, name='input-x')      # 输入文本
         self.input_y = tf.placeholder(shape=[None, FastTextConfig.NUM_CLASSES],
                                                 dtype=tf.int32, name='input-y')     # 输入文本对应的true label
-        self.input_keep_prob = tf.placeholder(dtype=tf.float32, name='input-keep-prob')                     # keep-prob
+        self.input_keep_prob = tf.placeholder(dtype=tf.float32, name='input-keep-prob')                     #
+        # keep-prob
         self.sess = tf.Session(config=gpuConfig)
         # 加载停用词
         self.stopwords = [word.replace('\n', '').strip() for word in open(FastTextConfig.STOP_WORDS_PATH,
@@ -216,26 +217,26 @@ class FastText(Model):
     #
     #     return predict
 
-    def pre_process(self, sentence):
-        '''
-        文本数据预处理
-        :param sentence: 输入的文本句子
-        :return:
-        '''
-        # 分词，去除停用词
-        sentence_seg = [word for word in text_processing(sentence).split(' ') if word not in self.stopwords and not word.isdigit()]
-        # 将词汇映射为ID
-        sentence_id = []
-        for word in sentence_seg:
-            if word in self.word_to_id:
-                sentence_id.append(self.word_to_id[word])
-            else:
-                sentence_id.append(self.word_to_id['<UNK>'])
-        # 对文本长度进行padding填充
-        sentence_length = len(sentence_id)
-        if sentence_length > FastTextConfig.SEQ_LENGTH:
-            sentence_id = sentence_id[: FastTextConfig.SEQ_LENGTH]
-        else:
-            sentence_id.extend([self.word_to_id['<PAD>']] * (FastTextConfig.SEQ_LENGTH - sentence_length))
-
-        return sentence_id
+    # def pre_process(self, sentence):
+    #     '''
+    #     文本数据预处理
+    #     :param sentence: 输入的文本句子
+    #     :return:
+    #     '''
+    #     # 分词，去除停用词
+    #     sentence_seg = [word for word in text_processing(sentence).split(' ') if word not in self.stopwords and not word.isdigit()]
+    #     # 将词汇映射为ID
+    #     sentence_id = []
+    #     for word in sentence_seg:
+    #         if word in self.word_to_id:
+    #             sentence_id.append(self.word_to_id[word])
+    #         else:
+    #             sentence_id.append(self.word_to_id['<UNK>'])
+    #     # 对文本长度进行padding填充
+    #     sentence_length = len(sentence_id)
+    #     if sentence_length > FastTextConfig.SEQ_LENGTH:
+    #         sentence_id = sentence_id[: FastTextConfig.SEQ_LENGTH]
+    #     else:
+    #         sentence_id.extend([self.word_to_id['<PAD>']] * (FastTextConfig.SEQ_LENGTH - sentence_length))
+    #
+    #     return sentence_id

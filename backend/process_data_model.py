@@ -3,20 +3,25 @@ import django
 import sys
 
 # 这两行很重要，用来寻找项目根目录，os.path.dirname要写多少个根据要运行的python文件到根目录的层数决定
+from algo.model.msra_preprocessing import read_file
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 django.setup()
 
 
-from algo.model.model_config import FastTextConfig
+from algo.model.model_config import FastTextConfig, BertBilstmCrfConfig
 from algo.model.process_data import pre_process, load_dataset, build_vocab, read_vocab, build_label, read_label, \
-    data_transform, load_raw_data
-from algo.models import ClassifyData
+    data_transform, load_raw_data, DataProcess
+from algo.models import ClassifyData, NerData
+from algo.model.bert_bilstm_crf import train_sample
 
 
+'''
 if __name__ == "__main__":
     """
+    分类数据
     将原始文本和id化后的序列存储
     """
     # 数据集预处理
@@ -44,4 +49,34 @@ if __name__ == "__main__":
     for sentence, id_sentence in zip(raw_sentences, data_sentences):
         model = ClassifyData(text=sentence, pre_text=",".join([str(i) for i in id_sentence]))
         model.save()
+'''
 
+"""
+if __name__ == "__main__":
+    '''
+    # 训练bert-bilstm-crf
+    '''
+    # columns = ['model_name','epoch', 'loss', 'acc', 'val_loss', 'val_acc', 'f1', 'recall']
+    info_list = train_sample(epochs=1)
+    for info in info_list:
+        print(info)
+"""
+
+"""
+if __name__ == "__main__":
+    '''
+    将实体识别数据存储到数据库
+    '''
+    path_train1 = os.path.join(BertBilstmCrfConfig.MSRA_DIR, "data.txt")
+    texts = read_file(path_train1)
+    sentences = []
+    for t in texts:
+        words = t.split(' ')
+        sentence = [w.split('/')[0] for w in words]
+        sentences.append(sentence)
+    data = NerData.objects.all()
+    data.delete()
+    for s in sentences:
+        model = NerData(text="".join(s))
+        model.save()
+"""

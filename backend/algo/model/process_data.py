@@ -235,11 +235,7 @@ def creat_batch_data(input_data, input_label, batch_size):
 
 
 class DataProcess(object):
-    def __init__(self,
-                 max_len=100,
-                 data_type='data',  # 'data', 'data2', 'msra', 'renmin'
-                 model='other',  # 'other'、'bert' bert 数据处理需要单独进行处理
-                 ):
+    def __init__(self, max_len=100):
         """
         数据处理
         :param max_len: 句子最长的长度，默认为保留100
@@ -252,18 +248,14 @@ class DataProcess(object):
         self.unk_flag = unk_flag
         self.pad_flag = pad_flag
         self.max_len = max_len
-        self.model = model
 
         self.unk_index = self.w2i.get(unk_flag, 101)
         self.pad_index = self.w2i.get(pad_flag, 1)
         self.cls_index = self.w2i.get(cls_flag, 102)
         self.sep_index = self.w2i.get(sep_flag, 103)
 
-        if data_type == 'msra':
-            self.base_dir = BertBilstmCrfConfig.MSRA_DIR
-            msra_preprocessing()
-        else:
-            raise RuntimeError('type must be "data", "msra", "renmin" or "data2"')
+        self.base_dir = BertBilstmCrfConfig.MSRA_DIR
+        msra_preprocessing()
 
     def get_data(self, one_hot: bool = True) -> ([], [], [], []):
         """
@@ -276,12 +268,8 @@ class DataProcess(object):
         path_test = os.path.join(self.base_dir, "test_small.txt")
 
         # 读取数据
-        if self.model == 'bert':
-            train_data, train_label = self.__bert_text_to_index(path_train)
-            test_data, test_label = self.__bert_text_to_index(path_test)
-        else:
-            train_data, train_label = self.__text_to_indexs(path_train)
-            test_data, test_label = self.__text_to_indexs(path_test)
+        train_data, train_label = self.__bert_text_to_index(path_train)
+        test_data, test_label = self.__bert_text_to_index(path_test)
 
         # 进行 one-hot处理
         if one_hot:
@@ -440,7 +428,6 @@ if __name__ == '__main__':
     print(y_test.shape)
 
     print(y_train[:1, :1, :100])
-
     pass
 
 

@@ -1,4 +1,4 @@
-ROOT_PATH = '/Users/wanli/create/project/work/CatchingFire/'
+ROOT_PATH = '/Users/wanli/create/project/CatchingFire/'
 CLASSIFY_DATA_PATH = ROOT_PATH+'backend/data/classify/'
 MODEL_SAVE_PATH = ROOT_PATH+'backend/save_model/'
 
@@ -24,4 +24,4 @@ class FastTextConfig:
 class BertBilstmCrfConfig:
     BERT_MODEL_DIR = ROOT_PATH+'backend/save_model/chinese_L-12_H-768_A-12/'
     MSRA_DIR = ROOT_PATH+'backend/data/MSRA'
-    VOCAB_PATH = ROOT_PATH+'save_model/chinese_L-12_H-768_A-12/vocab.txt'
+    VOCAB_PATH = ROOT_PATH+'backend/save_model/chinese_L-12_H-768_A-12/vocab.txt'

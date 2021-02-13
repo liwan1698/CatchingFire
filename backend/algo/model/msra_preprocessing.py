@@ -124,11 +124,3 @@ def msra_preprocessing(split_rate: float = 0.8,
     with open(path_test, 'w') as f:
         f.write("".join(test_))
     print("MSRA数据进行预处理完成 ---- OK!")
-
-
-if __name__ == '__main__':
-    msra_preprocessing(ignore_exist=True)
-
-    pass
-
-
