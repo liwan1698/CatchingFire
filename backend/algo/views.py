@@ -4,8 +4,9 @@ from django.views.generic.base import View
 from django.http import JsonResponse
 
 from .model.bert_bilstm_crf import BertBilstmCrf
+from .model.bert_relation_extraction import BertTripleExtract
 from .model.process_data import DataProcess
-from .models import ClassifyData, ClassifyTag, NerData
+from .models import ClassifyData, ClassifyTag, NerData, TripleExtractData
 import logging
 import json
 
@@ -163,14 +164,93 @@ class Ner(View):
         self.human_tag_num += 1
         # 触发实时训练
         if self.human_tag_num == self.real_time_train_num:
-            # todo
             max_len = 100
             dp = DataProcess(max_len=max_len)
             # todo 改为从数据库读取数据
-            train_data, train_label, test_data, test_label = dp.get_data(one_hot=True)
             model = BertBilstmCrf(dp.vocab_size, dp.tag_size, max_len=max_len)
             model.build()
             model.train()
             model.predict_all()
             self.human_tag_num = 0
         return JsonResponse({"code": 200}, json_dumps_params={'ensure_ascii': False})
+
+
+class NerTags(View):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def get(self, request):
+        """
+        获得标签
+        :param request:
+        :return:
+        """
+        tags = ClassifyTag.objects.all()
+        if len(tags) == 0:
+            return JsonResponse({"code": 200})
+        return JsonResponse(tags, json_dumps_params={'ensure_ascii': False})
+
+    def post(self, request):
+        """
+        增加标签
+        :param request:
+        :return:
+        """
+        new_tags = json.loads(request.body)
+        logging.debug("tags is %s" % (new_tags["tags"]))
+        tags = ClassifyTag.objects.all()
+        tags.delete()
+        for tag in new_tags["tags"]:
+            tag_model = ClassifyTag(tag=tag)
+            tag_model.save()
+        return JsonResponse({"code": 200})
+
+
+class TripleExtract(View):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.human_tag_num = 0   # 记录人工修改数
+        self.real_time_train_num = 100   # 当HUMAN_TAG_NUM达到100，则触发实时训练
+
+    def get(self, request):
+        """
+        获得标注数据
+        :param request:
+        :return:
+        """
+        # 返回的字段包括原始文本、预测标签、人工标签
+        begin_num = int(request.GET.get("begin_num"))
+        fitch_num = int(request.GET.get("fitch_num"))
+        logging.info('begin_num is %d, fitch_num is %d' % (begin_num, fitch_num))
+        if fitch_num > 100:
+            fitch_num = 100
+        data = TripleExtractData.objects.values("id", "text", "predict_label", "human_label")[
+                        begin_num:begin_num+fitch_num]
+        return JsonResponse(list(data), json_dumps_params={'ensure_ascii': False}, safe=False)
+
+    def post(self, request):
+        """
+        更改标签
+        :param request: body = [{"predicate": "主演", "object_type": "人物", "subject_type": "影视作品", "object": "周星驰", "subject": "喜剧之王"}]
+        :return:
+        """
+        logging.info('body is %s' % (request.body))
+        tag = json.loads(request.body)
+        # 整理标注数据存储
+        id = tag['id']
+        spoes = tag['spoes']
+        data = TripleExtractData.objects.filter(id=id)
+        data.update(human_label=json.dumps(spoes))
+        self.human_tag_num += 1
+        # 触发实时训练
+        if self.human_tag_num == self.real_time_train_num:
+            model = BertTripleExtract()
+            model.build()
+            model.train()
+            model.predict_all()
+            self.human_tag_num = 0
+        return JsonResponse({"code": 200}, json_dumps_params={'ensure_ascii': False})
+
+
+class TripleExtractTags(View):
+    pass

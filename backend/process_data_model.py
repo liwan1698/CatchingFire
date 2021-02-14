@@ -3,8 +3,6 @@ import django
 import sys
 
 # 这两行很重要，用来寻找项目根目录，os.path.dirname要写多少个根据要运行的python文件到根目录的层数决定
-from algo.model.msra_preprocessing import read_file
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
@@ -14,8 +12,11 @@ django.setup()
 from algo.model.model_config import FastTextConfig, BertBilstmCrfConfig
 from algo.model.process_data import pre_process, load_dataset, build_vocab, read_vocab, build_label, read_label, \
     data_transform, load_raw_data, DataProcess
-from algo.models import ClassifyData, NerData
+from algo.models import ClassifyData, NerData, TripleExtractData
 from algo.model.bert_bilstm_crf import train_sample
+from algo.model.bert_relation_extraction import data_generator, train_data, batch_size, \
+    BertTripleExtract, load_data
+from algo.model.msra_preprocessing import read_file
 
 
 '''
@@ -80,3 +81,22 @@ if __name__ == "__main__":
         model = NerData(text="".join(s))
         model.save()
 """
+
+
+"""
+if __name__ == '__main__':
+    model = BertTripleExtract()
+    model.build()
+    model.train()
+    model.predict_all()
+"""
+
+if __name__ == "__main__":
+    """
+    三元组数据存储到数据库
+    """
+    train_data = load_data('/Users/wanli/create/project/CatchingFire/backend/data/triple/train_data_small')
+    for t in train_data:
+        data = TripleExtractData(text=t['text'])
+        data.save()
+

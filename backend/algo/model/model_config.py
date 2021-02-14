@@ -25,3 +25,10 @@ class BertBilstmCrfConfig:
     BERT_MODEL_DIR = ROOT_PATH+'backend/save_model/chinese_L-12_H-768_A-12/'
     MSRA_DIR = ROOT_PATH+'backend/data/MSRA'
     VOCAB_PATH = ROOT_PATH+'backend/save_model/chinese_L-12_H-768_A-12/vocab.txt'
+
+
+class BertRelationExtract:
+    BERT_MODEL_DIR = ROOT_PATH+'backend/save_model/chinese_L-12_H-768_A-12/'
+    CONFIG = BERT_MODEL_DIR+'bert_config.json'
+    CHECK_POINT = BERT_MODEL_DIR+'bert_model.ckpt'
+    VOCAB_PATH = BERT_MODEL_DIR+'vocab.txt'
